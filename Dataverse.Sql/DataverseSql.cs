@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Net;
+using Microsoft.Xrm.Sdk;
 
 namespace Dataverse.Sql
 {
@@ -114,6 +115,35 @@ namespace Dataverse.Sql
                 };
 
                 Options = new QueryExecutionOptions(DataSources[primaryDataSource]);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.ToString());
+            }
+        }
+
+        /// <summary>
+        /// Fetches the result of an SQL query and returns it as EntityCollection.
+        /// This method uses Sql2FetchXml which is obsolete. Use Retrieve, 
+        /// Retrieve<T> or RetrieveJson instead.
+        /// </summary>
+        /// <param name="Sql">The SQL query</param>
+        /// <returns>Query result as EntityCollection</returns>
+        /// <exception cref="Exception"></exception>
+        [Obsolete("Use Retrieve, Retrieve<T> or RetrieveJson instead.")]
+        public EntityCollection Fetch(string Sql)
+        {
+            try
+            {
+                #pragma warning disable CS0618 // Type or member is obsolete
+                var sql2FetchXml = new Sql2FetchXml(Metadata, true);
+                #pragma warning restore CS0618 // Type or member is obsolete
+
+                var query = sql2FetchXml.Convert(Sql)[0];
+
+                query.Execute(DataSources, Options);
+
+                return (EntityCollection)query.Result;
             }
             catch (Exception ex)
             {
