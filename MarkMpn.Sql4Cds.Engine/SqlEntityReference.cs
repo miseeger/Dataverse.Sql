@@ -41,7 +41,7 @@ namespace MarkMpn.Sql4Cds.Engine
 
         public string LogicalName { get; }
 
-        public Guid Id => _guid.Value;
+        public Guid Id => IsNull ? Guid.Empty : _guid.Value;
 
         public bool IsNull => ((INullable)_guid).IsNull;
 
