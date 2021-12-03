@@ -85,7 +85,11 @@ namespace MarkMpn.Sql4Cds.Engine
                         if (nullable.IsNull)
                             value = null;
                         else
-                            value = value.GetType().GetProperty("Value").GetValue(value);
+                        {
+                            value = value is SqlEntityReference reference
+                                ? reference.Id 
+                                : value.GetType().GetProperty("Value").GetValue(value);
+                        }
                     }
 
                     entity[col.ColumnName] = value;
