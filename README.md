@@ -1,6 +1,8 @@
-# Dataverse.Sql (Version 5.3.0.510)
+# Dataverse.Sql (Version 5.3.1.510)
 
-This project is a fork of [Mark Carrington's](https://markcarrington.dev/sql-4-cds/), sole SQL engine which was originally developed for [SQL 4 CDS](https://github.com/MarkMpn/Sql4Cds). The engine and their tests were ported to .NET5 (Core) so that Dataverse.Sql uses the [Microsoft.PowerPlatform.Dataverse.Client](https://github.com/microsoft/PowerPlatform-DataverseServiceClient) library/package.
+This project is uses the code of [Mark Carrington's](https://markcarrington.dev/sql-4-cds/) sole [SQL 4 CDS](https://github.com/MarkMpn/Sql4Cds) engine which originally targets only full framework.The original engine and their tests were ported to .NET5 (Core) and keep their namespace. Dataverse.Sql uses the [Microsoft.PowerPlatform.Dataverse.Client](https://github.com/microsoft/PowerPlatform-DataverseServiceClient) library/package.
+
+Dataverse.Sql wraps around the SQL 4 CDS engine and exposes the methods to retrieve data from your Dataverse Environment via SQL. It also provides the opportunity to set the engine options in a settings file (`dataversesql.json`) which is delivered with the package.
 
 Dataverse.Sql will continuously be synchonized with changes in the SQL 4 CDS engine. Version numbers will be accordingly updated. The Revision number of the Dataverse.Sql version will hereby be taken from the Version number of the used Dataverse Client (currently using `0.5.10` which becomes `.510`)
 
@@ -60,13 +62,29 @@ FROM
 WHERE  attribute.description IS NULL
 ```
 
-
-
 ## Getting started with `DataverseSql` to do all the work
 
-The `Environment` class provides all the functionality needed to connect to, retrieve data from a Dataverse Environment and execute DML statements on a Dataverse Environment.
+The `DataverseSql` class provides all the functionality needed to connect to, retrieve data from a Dataverse Environment and execute DML statements on a Dataverse Environment.
 
+### Settings File
 
+The file which holds the engine's options must be named `dataversesql.json` and contain the following properties:
+```json
+{
+    "useLocalTimeZone": "true",
+    "cancelled": "false",
+    "blockUpdateWithoutWhere": "true",
+    "blockDeleteWithoutWhere": "false",
+    "useBulkDelete": "false",
+    "batchSize": "1",
+    "useTdsEndpoint": "false",
+    "useRetrieveTotalRecordCount": "true",
+    "maxDegreeOfParallelism": "10",
+    "columnComparisonAvailable": "true",
+    "bypassCustomPlugins": "false"
+}
+```
+It must be provided in the project's folder that uses Dataverse.Sql and "copied if newer". 
 
 ### Connecting to the Dataverse
 
@@ -78,18 +96,16 @@ using (DataverseSqlTest = new DataverseSql(DataverseSql.GetClientSecretConnectio
 {
 	if (DataverseTestEnv.IsReady)
     {
-		// ... your actions
-	}
+        // ... your actions
+    }
 }
 ```
 
 Please be aware that only OAuth and ClientSecret AuthTypes are provided by the current version of the Microsoft.PowerPlatform.Dataverse.Client library. To generate an appropriate connection string you can use the static `GetClientSecretConnectionString` or `GetOAuthConnectionString` methods of the `Dataverse.Sql.DataverseSql` class.
 
-
-
 ### Retrieving/fetching Data
 
-> A tipp for creating your SQL queries before put them into program code is to firstly develop ant test them using the CDS 4 SQL plugin for XrmToolbox because the engine of Dataverse.Sql is identically with the CDS 4 SQL engine, as mentioned at the beginning. So you can be sure that your query works right away if you use it in your application
+> A tipp for creating your SQL queries before put them into program code is to firstly develop ant test them using the CDS 4 SQL plugin for XrmToolbox because the engine of Dataverse.Sql is identically with the CDS 4 SQL engine, as mentioned at the beginning. So you can be sure that your query works right away if you use it in your application. but be aware to use the according versions of the engines. 
 
 Here you'll find how to use the various methods in order to query your Environment:
 
@@ -129,8 +145,6 @@ var salesorderResult = DataverseSqlTest.Retrieve<Salesorder>(sql);
 Console.WriteLine($"Retrieving Salesorders: {salesorderResult.Count} Order retrieved.\r\n");
 ```
 
-
-
 ### Executing DML Statements
 
 For executing DML statements you have to use the  `Execute()` by just providing your CUD command. The Result of the method is the result message returned by the server.
@@ -140,109 +154,4 @@ var execResult = DataverseSqlTest.Execute(
     "UPDATE contact SET statecode = 1, statuscode = 2 WHERE emailaddress1 IS NULL"
 );
 Console.WriteLine($"Update done: {execResult}\r\n");
-```
-
-### Sql Use Cases
-The following use cases are taken from the `ExecutionPlan` tests.
-
-#### Aggregate In Subquery
-```sql
-SELECT 
-    firstname
-FROM
-    contact
-WHERE  
-    firstname IN (
-        SELECT 
-            firstname
-        FROM 
-            contact
-        GROUP BY 
-            firstname
-        HAVING 
-            count(*) > 1
-    )
-```
-#### Aggregate Sort
-```sql
-SELECT
-    name
-    ,COUNT(*) 
-FROM 
-    account 
-GROUP BY
-    name
-ORDER BY 
-    2 DESC
-```
-####  Aliased Aggregate
-```sql
-SELECT
-    name
-    ,COUNT(*) AS test
-FROM
-    account
-GROUP BY 
-    name
-```
-#### Aliased Grouping Aggregate
-```sql
-SELECT
-    name AS test,
-    COUNT(*)
-FROM
-    account
-GROUP BY 
-    name
-```
-#### Compute Scalar Distinct
-```sql
-SELECT DISTINCT TOP 10
-    name + '1'
-FROM
-    account
-```
-#### Compute Scalar Filter
-```sql
-SELECT
-    contactid 
-FROM 
-    contact 
-WHERE 
-    firstname + ' ' + lastname = 'Mark Carrington'
-```
-#### Compute Scalar Select
-```sql
-SELECT 
-    firstname + ' ' + lastname AS fullname 
-FROM 
-    contact 
-WHERE 
-    firstname = 'Mark'
-```
-#### Cross Apply
-```sql
-SELECT
-    name
-    ,firstname
-    ,lastname
-FROM
-    account
-    CROSS APPLY (
-        SELECT 
-            *
-        FROM 
-            contact
-        WHERE 
-            primarycontactid = contactid
-    ) a
-```
-#### Cross Join
-```sql
-SELECT
-    name
-    ,fullname
-FROM
-    account
-    CROSS JOIN contact
 ```
