@@ -1,10 +1,11 @@
-# Dataverse.Sql (Version 5.3.1.510)
+# ![DataverseLogo](Assets/DataverseLogo_xs.png) Dataverse.Sql
+[![Nuget](https://img.shields.io/nuget/v/Dataverse.Sql)](https://www.nuget.org/packages/Dataverse.Sql) [![lic](https://img.shields.io/badge/license-MIT-blue)](https://github.com/miseeger/Dataverse.Sql/blob/main/LICENSE)
 
-This project is uses the code of [Mark Carrington's](https://markcarrington.dev/sql-4-cds/) sole [SQL 4 CDS](https://github.com/MarkMpn/Sql4Cds) engine which originally targets only full framework.The original engine and their tests were ported to .NET5 (Core) and keep their namespace. Dataverse.Sql uses the [Microsoft.PowerPlatform.Dataverse.Client](https://github.com/microsoft/PowerPlatform-DataverseServiceClient) library/package.
+This project uses the code of [Mark Carrington's](https://markcarrington.dev/sql-4-cds/) sole [SQL 4 CDS](https://github.com/MarkMpn/Sql4Cds) engine which originally targets only full framework. The original engine and their tests were ported to .NET5 (Core). Some modifications were necassary since Dataverse.Sql uses the [Microsoft.PowerPlatform.Dataverse.Client](https://github.com/microsoft/PowerPlatform-DataverseServiceClient) but the original namespace is left as is.
 
 Dataverse.Sql wraps around the SQL 4 CDS engine and exposes the methods to retrieve data from your Dataverse Environment via SQL. It also provides the opportunity to set the engine options in a settings file (`dataversesql.json`) which is delivered with the package.
 
-Dataverse.Sql will continuously be synchonized with changes in the SQL 4 CDS engine. Version numbers will be accordingly updated. The Revision number of the Dataverse.Sql version will hereby be taken from the Version number of the used Dataverse Client (currently using `0.5.10` which becomes `.510`)
+This library will continuously be synchonized with changes in the SQL 4 CDS engine. Version numbers will be accordingly updated. The Revision number of the Dataverse.Sql version will hereby be taken from the Version number of the used Dataverse Client (currently using `0.5.10` which becomes `.510`)
 
 The SQL engine is able to convert the provided SQL query into the corresponding [FetchXML](https://docs.microsoft.com/en-us/powerapps/developer/common-data-service/fetchxml-schema) syntax and allows the associated query to be executed, including the following types of query:
 
@@ -17,26 +18,26 @@ For example:
 
 ```sql
 -- Get contact details
-SELECT   
-	c.firstname,
+SELECT
+    c.firstname,
     c.lastname,
     a.telephone1
-FROM     
-	contact AS c
+FROM
+    contact AS c
     JOIN account AS a ON (c.parentcustomerid = a.accountid)
-WHERE    
-	c.firstname = 'Mark'
+WHERE
+    c.firstname = 'Mark'
     AND a.statecode = 0
-ORDER BY 
-	c.createdon DESC
+ORDER BY
+    c.createdon DESC
 
 -- Deactivate contacts without an email address
-UPDATE 
-	contact
-SET    
-	statecode = 1, statuscode = 2
-WHERE  
-	emailaddress1 IS NULL
+UPDATE
+    contact
+SET
+    statecode = 1, statuscode = 2
+WHERE
+    emailaddress1 IS NULL
 ```
 
 The engine converts all the SQL syntax that has a direct equivalent in FetchXML. It also attempts to support some more SQL features that do not have an equivalent in FetchXML, such as calculated fields, `HAVING` clauses and more.
@@ -53,11 +54,11 @@ As well as querying data with FetchXML, Dataverse.Sql can also query metadata by
 
 ```sql
 -- Find attributes without a description
-SELECT 
-	entity.logicalname,
+SELECT
+    entity.logicalname,
     attribute.logicalname
-FROM   
-	metadata.entity
+FROM
+    metadata.entity
     JOIN metadata.attribute ON (entity.logicalname = attribute.entitylogicalname)
 WHERE  attribute.description IS NULL
 ```
@@ -84,7 +85,7 @@ The file which holds the engine's options must be named `dataversesql.json` and 
     "bypassCustomPlugins": "false"
 }
 ```
-It must be provided in the project's folder that uses Dataverse.Sql and "copied if newer". 
+It must be provided in the project's folder that uses Dataverse.Sql and "copied if newer".
 
 ### Connecting to the Dataverse
 
@@ -92,9 +93,9 @@ To connect to a Dataverse Environment you just have to instantiate a `Dataverse.
 
 ```c#
 using (DataverseSqlTest = new DataverseSql(DataverseSql.GetClientSecretConnectionString(
-	"https://myTestEnv.crm.microsoft.com", "51f81489-12ee-4a9e-aaae-a2591f45987d", "TopSecret")))
+    "https://myTestEnv.crm.microsoft.com", "51f81489-12ee-4a9e-aaae-a2591f45987d", "TopSecret")))
 {
-	if (DataverseTestEnv.IsReady)
+    if (DataverseTestEnv.IsReady)
     {
         // ... your actions
     }
@@ -105,7 +106,7 @@ Please be aware that only OAuth and ClientSecret AuthTypes are provided by the c
 
 ### Retrieving/fetching Data
 
-> A tipp for creating your SQL queries before put them into program code is to firstly develop ant test them using the CDS 4 SQL plugin for XrmToolbox because the engine of Dataverse.Sql is identically with the CDS 4 SQL engine, as mentioned at the beginning. So you can be sure that your query works right away if you use it in your application. but be aware to use the according versions of the engines. 
+> A tipp for creating your SQL queries before put them into program code is to firstly develop ant test them using the CDS 4 SQL plugin for XrmToolbox because the engine of Dataverse.Sql is identically with the CDS 4 SQL engine, as mentioned at the beginning. So you can be sure that your query works right away if you use it in your application. but be aware to use the according versions of the engines.
 
 Here you'll find how to use the various methods in order to query your Environment:
 
@@ -119,17 +120,16 @@ var retrieveResult = DataverseSqlTest.Retrieve("SELECT accountid, name FROM acco
 Console.WriteLine($"Retrieving Accounts: {retrieveResult.Rows.Count} Rows.\r\n");
 
 var sql =
-	@"SELECT TOP 1
-    	so.OrderNumber
+    @"SELECT TOP 1
+        so.OrderNumber
         ,so.PriceLevelIdName
         ,so.CustomerIdName
         ,so.CustomerIdType
         ,c.Firstname
         ,c.Lastname
-        ,a.name AS InstName
         ,suc.fullname AS ContactOwner
         ,sua.fullname AS AccountOwner
-    FROM 
+    FROM
         salesorder so
         LEFT JOIN contact c ON (c.contactid = so.customerid)
         LEFT JOIN account a ON (a.accountid = so.customerid)

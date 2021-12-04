@@ -1,0 +1,24 @@
+# To learn more about .editorconfig see https://aka.ms/editorconfigdocs
+root = true
+
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.cs]
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+csharp_space_after_keywords_in_control_flow_statements = true
+
+# xUnit2013: Do not use equality check to check for collection size.
+dotnet_diagnostic.xUnit2013.severity = silent
+
+[*.csproj]
+indent_size = 2
