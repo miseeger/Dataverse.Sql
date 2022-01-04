@@ -7,10 +7,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dataverse.Sql", "Dataverse.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dataverse.Sql.Tests", "Dataverse.Sql.Tests\Dataverse.Sql.Tests.csproj", "{E2AD7082-419F-4424-BBC0-A5BFBF720AF4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarkMpn.Sql4Cds.Engine", "MarkMpn.Sql4Cds.Engine\MarkMpn.Sql4Cds.Engine.csproj", "{032587B1-3BAC-402B-A3CE-E30C3861CFFA}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarkMpn.Sql4Cds.Engine.Tests", "MarkMpn.Sql4Cds.Engine.Tests\MarkMpn.Sql4Cds.Engine.Tests.csproj", "{CF1885BB-4B00-4804-BC51-E7DE84D496A1}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,22 +31,6 @@ Global
 		{E2AD7082-419F-4424-BBC0-A5BFBF720AF4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E2AD7082-419F-4424-BBC0-A5BFBF720AF4}.Release|x86.ActiveCfg = Release|Any CPU
 		{E2AD7082-419F-4424-BBC0-A5BFBF720AF4}.Release|x86.Build.0 = Release|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Debug|x86.Build.0 = Debug|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Release|x86.ActiveCfg = Release|Any CPU
-		{032587B1-3BAC-402B-A3CE-E30C3861CFFA}.Release|x86.Build.0 = Release|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Debug|x86.Build.0 = Debug|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Release|x86.ActiveCfg = Release|Any CPU
-		{CF1885BB-4B00-4804-BC51-E7DE84D496A1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

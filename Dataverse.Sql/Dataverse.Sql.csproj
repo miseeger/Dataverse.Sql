@@ -1,20 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<!-- https://yer.ac/blog/2019/09/05/dotnet-pack-project-reference-and-nuget-dependency/ -->
-
 	<PropertyGroup>
 		<TargetFramework>net5.0</TargetFramework>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
 		<AssemblyName>Dataverse.Sql</AssemblyName>
 		<Product>Dataverse.Sql</Product>
 		<PackageId>Dataverse.Sql</PackageId>
-		<AssemblyVersion>5.3.1.510</AssemblyVersion>
-		<FileVersion>5.3.1.510</FileVersion>
-		<Version>5.3.1.510</Version>
-		<PackageVersion>5.3.1.510</PackageVersion>
+		<AssemblyVersion>5.4.0</AssemblyVersion>
+		<FileVersion>5.4.0</FileVersion>
+		<Version>5.4.0</Version>
+		<PackageVersion>5.4.0</PackageVersion>
 		<Description>A wrapper around Mark Carrington's SQL4Cds Engine.</Description>
-		<Copyright>Copyright (c) 2020 - 2021 Mark Carringon, Michael Seeger</Copyright>
+		<Copyright>Copyright (c) 2020 - 2021 Michael Seeger</Copyright>
 		<Authors>MiSeeger</Authors>
 		<PackageTags>Dynamics365,SQL,SQL4Cds,Dataverse,NetCore</PackageTags>
 		<PackageProjectUrl>https://github.com/miseeger/Dataverse.Sql</PackageProjectUrl>
@@ -28,6 +25,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="MarkMpn.Sql4Cds.Engine" Version="5.4.0" />
 		<PackageReference Include="Microsoft.Dynamics.Sdk.Messages" Version="0.5.10" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="5.0.0" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="0.5.10" />
@@ -40,13 +38,6 @@
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
 			<_Parameter1>Dataverse.Sql.Tests</_Parameter1>
 		</AssemblyAttribute>
-	</ItemGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\MarkMpn.Sql4Cds.Engine\MarkMpn.Sql4Cds.Engine.csproj">
-			<ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-			<IncludeAssets>MarkMpn.Sql4Cds.Engine.dll</IncludeAssets>
-		</ProjectReference>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -69,11 +60,5 @@
 			<PackagePath></PackagePath>
 		</None>
 	</ItemGroup>
-
-	<Target DependsOnTargets="ResolveReferences" Name="CopyProjectReferencesToPackage">
-		<ItemGroup>
-			<BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))"/>
-		</ItemGroup>
-	</Target>
 
 </Project>
