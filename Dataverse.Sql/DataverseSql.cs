@@ -6,15 +6,16 @@ using Microsoft.PowerPlatform.Dataverse.Client;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Net;
-using Microsoft.Xrm.Sdk;
+using System.Text.RegularExpressions;
 
 namespace Dataverse.Sql
 {
     public class DataverseSql : IDisposable
     {
         private bool disposedValue;
-        private const string primaryDataSource = "local"; 
+        private const string primaryDataSource = "local";
 
         IDictionary<string, DataSource> DataSources { get; set; }
         public ServiceClient Client => (ServiceClient)DataSources[primaryDataSource].Connection;
@@ -24,7 +25,7 @@ namespace Dataverse.Sql
         public static IConfiguration Config { get; set; }
         public bool IsReady => Client != null && Client.IsReady;
 
-        
+
         public DataverseSql()
         {
             DataSources = new Dictionary<string, DataSource>();
@@ -79,7 +80,7 @@ namespace Dataverse.Sql
         public static string GetOAuthConnectionString(string url, string username, string password = "", string clientId = "51f81489-12ee-4a9e-aaae-a2591f45987d")
         {
             // The Passwort can be left blank if the User is already logged in with AD (kinda WinAuth)
-            return 
+            return
                 $"AuthType=OAuth; Url={url}; Username={username}; Password={password}; " +
                 $"ClientId={clientId}; LoginPrompt=Auto; RedirectUri=http://localhost; " +
                 $@"TokenCacheStorePath=%appdata%\..\local\Temp\{AppDomain.CurrentDomain.FriendlyName}\oauthcache.txt";
@@ -107,43 +108,14 @@ namespace Dataverse.Sql
 
                 DataSources.Clear();
                 DataSources[primaryDataSource] = new DataSource
-                    {
-                        Connection = client,
-                        Metadata = new AttributeMetadataCache(client),
-                        TableSizeCache = new TableSizeCache(client, metadata),
-                        Name = primaryDataSource
+                {
+                    Connection = client,
+                    Metadata = new AttributeMetadataCache(client),
+                    TableSizeCache = new TableSizeCache(client, metadata),
+                    Name = primaryDataSource
                 };
 
                 Options = new QueryExecutionOptions(DataSources[primaryDataSource]);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.ToString());
-            }
-        }
-
-        /// <summary>
-        /// Fetches the result of an SQL query and returns it as EntityCollection.
-        /// This method uses Sql2FetchXml which is obsolete. Use Retrieve, 
-        /// Retrieve<T> or RetrieveJson instead.
-        /// </summary>
-        /// <param name="Sql">The SQL query</param>
-        /// <returns>Query result as EntityCollection</returns>
-        /// <exception cref="Exception"></exception>
-        [Obsolete("Use Retrieve, Retrieve<T> or RetrieveJson instead.")]
-        public EntityCollection Fetch(string Sql)
-        {
-            try
-            {
-                #pragma warning disable CS0618 // Type or member is obsolete
-                var sql2FetchXml = new Sql2FetchXml(Metadata, true);
-                #pragma warning restore CS0618 // Type or member is obsolete
-
-                var query = sql2FetchXml.Convert(Sql)[0];
-
-                query.Execute(DataSources, Options);
-
-                return (EntityCollection)query.Result;
             }
             catch (Exception ex)
             {
@@ -204,6 +176,39 @@ namespace Dataverse.Sql
         }
 
         /// <summary>
+        /// Retrieves a scalar value.
+        /// </summary>
+        /// <typeparam name="T">Type of result</typeparam>
+        /// <param name="sql">Query statement</param>
+        /// <param name="addAsResult">Adds "AS Result" automatically to the sole vale to be retrieved</param>
+        /// <returns>Salar value of the given type</returns>
+        /// <exception cref="Exception"></exception>
+        public T RetrieveScalar<T>(string sql, bool addAsResult = true)
+        {
+            if (Regex.Match(sql, "SELECT(.*)FROM").Groups[1].ToString().Split(",").Count() > 1)
+            {
+                throw new Exception(
+                    "The SQL statement retrieving a scalar value contains more than one field.\r\n" +
+                    $"Trying to execute the following SQL statement:\r\n\r\n{sql}\r\n\r\n");
+            }
+
+            if (addAsResult)
+            {
+                sql = sql.Replace("FROM", "AS Result FROM");
+            }
+
+            try
+            {
+                return (T)Retrieve<ScalarResult>(sql).FirstOrDefault()?.Result;
+            }
+            catch (Exception e)
+            {
+                throw new Exception(
+                    $"{e.Message}\r\nTrying to execute the following SQL statement:\r\n\r\n{sql}\r\n\r\n", e);
+            }
+        }
+
+        /// <summary>
         /// Retrieves the result of an SQL query and returns it as JSON string.
         /// </summary>
         /// <param name="Sql">The SQL query</param>
@@ -234,7 +239,7 @@ namespace Dataverse.Sql
                 {
                     throw new Exception(ex.ToString());
                 }
-                
+
             }
 
             return $"A {query.GetType()} cannot be executed as DML Query!";
@@ -260,5 +265,10 @@ namespace Dataverse.Sql
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
+    }
+
+    internal class ScalarResult
+    {
+        public object Result { get; set; }
     }
 }
