@@ -1,13 +1,9 @@
 using MarkMpn.Sql4Cds.Engine;
-using MarkMpn.Sql4Cds.Engine.ExecutionPlan;
 using Dataverse.Sql.Extensions;
-using Microsoft.Extensions.Configuration;
-using Microsoft.PowerPlatform.Dataverse.Client;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Net;
 using System.Text.RegularExpressions;
 
 namespace Dataverse.Sql
@@ -15,30 +11,17 @@ namespace Dataverse.Sql
     public class DataverseSql : IDisposable
     {
         private bool disposedValue;
-        private const string primaryDataSource = "local";
 
-        IDictionary<string, DataSource> DataSources { get; set; }
-        public ServiceClient Client => (ServiceClient)DataSources[primaryDataSource].Connection;
-        public AttributeMetadataCache Metadata => (AttributeMetadataCache)DataSources[primaryDataSource].Metadata;
-        public TableSizeCache TableSizes => (TableSizeCache)DataSources[primaryDataSource].TableSizeCache;
-        public QueryExecutionOptions Options { get; set; }
-        public static IConfiguration Config { get; set; }
-        public bool IsReady => Client != null && Client.IsReady;
+        public Sql4CdsConnection Connection { get; set; }
+        public bool IsReady => Connection is {State: ConnectionState.Open};
 
 
         public DataverseSql()
         {
-            DataSources = new Dictionary<string, DataSource>();
-            Config = new ConfigurationBuilder().AddJsonFile("dataversesql.json", optional: false).Build();
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
 
         public DataverseSql(string Connectionstring)
         {
-            DataSources = new Dictionary<string, DataSource>();
-            Config = new ConfigurationBuilder().AddJsonFile("dataversesql.json", optional: false).Build();
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-
             Connect(Connectionstring);
         }
 
@@ -98,24 +81,12 @@ namespace Dataverse.Sql
         /// existing connection can be reused. Default value is false, if omitted.</param>
         /// <exception cref="Exception">Exception is thrown when either connectoion to
         /// the Environment fails or Metadata and TableSizes cannot be retrieved.</exception>
-        public void Connect(string connectionstring, bool requireNewInstance = false)
+        public void Connect(string connectionString, bool requireNewInstance = false)
         {
             try
             {
-                var client = new ServiceClient(connectionstring +
+                Connection = new Sql4CdsConnection(connectionString +
                     $"; RequireNewInstance={(requireNewInstance ? "true" : "false")}");
-                var metadata = new AttributeMetadataCache(client);
-
-                DataSources.Clear();
-                DataSources[primaryDataSource] = new DataSource
-                {
-                    Connection = client,
-                    Metadata = new AttributeMetadataCache(client),
-                    TableSizeCache = new TableSizeCache(client, metadata),
-                    Name = primaryDataSource
-                };
-
-                Options = new QueryExecutionOptions(DataSources[primaryDataSource]);
             }
             catch (Exception ex)
             {
@@ -131,22 +102,16 @@ namespace Dataverse.Sql
         /// <exception cref="Exception"></exception>
         public DataTable Retrieve(string Sql)
         {
-            var planBuilder = new ExecutionPlanBuilder(Metadata, TableSizes, Options);
-            var query = planBuilder.Build(Sql)[0];
+            using var cmd = Connection.CreateCommand();
 
-            if (query is IDataSetExecutionPlanNode selectQuery)
-            {
-                try
-                {
-                    return selectQuery.Execute(DataSources, Options, null, null);
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception(ex.ToString());
-                }
-            }
+            cmd.CommandText = Sql;
 
-            return new DataTable();
+            using var reader = cmd.ExecuteReader();
+
+            var table = new DataTable();
+            table.Load(reader);
+
+            return table;
         }
 
         /// <summary>
@@ -172,7 +137,41 @@ namespace Dataverse.Sql
             }
 
             return new List<T>();
+        }
 
+
+        /// <summary>
+        /// Retrieves the result of an SQL query and returns it as directly
+        /// mapped generic List.
+        /// </summary>
+        /// <param name="Sql">The SQL query</param>
+        /// <returns>Generic List</returns>
+        /// <exception cref="Exception"></exception>
+        public IList<T> Retrieve2<T>(string Sql) where T : new()
+        {
+            var result = new List<T>();
+
+            using var cmd = Connection.CreateCommand();
+
+            cmd.CommandText = Sql;
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                var t = new T();
+                var type = t.GetType();
+
+                for (var propIdx = 0; propIdx < reader.FieldCount; propIdx++)
+                {
+                    var prop = type.GetProperty(reader.GetName(propIdx));
+                    prop?.SetValue(t, Convert.ChangeType(reader.GetValue(propIdx), prop.PropertyType), null);
+                }
+
+                result.Add(t);
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -181,7 +180,7 @@ namespace Dataverse.Sql
         /// <typeparam name="T">Type of result</typeparam>
         /// <param name="sql">Query statement</param>
         /// <param name="addAsResult">Adds "AS Result" automatically to the sole vale to be retrieved</param>
-        /// <returns>Salar value of the given type</returns>
+        /// <returns>Scalar value of the given type</returns>
         /// <exception cref="Exception"></exception>
         public T RetrieveScalar<T>(string sql, bool addAsResult = true)
         {
@@ -224,25 +223,12 @@ namespace Dataverse.Sql
         /// <param name="Sql">Thq DML command</param>
         /// <returns>Result string returned by the Server</returns>
         /// <exception cref="Exception"></exception>
-        public string Execute(string Sql)
+        public int Execute(string Sql)
         {
-            var planBuilder = new ExecutionPlanBuilder(Metadata, TableSizes, Options);
-            var query = planBuilder.Build(Sql)[0];
-
-            if (query is IDmlQueryExecutionPlanNode dmlQuery)
-            {
-                try
-                {
-                    return dmlQuery.Execute(DataSources, Options, null, null);
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception(ex.ToString());
-                }
-
-            }
-
-            return $"A {query.GetType()} cannot be executed as DML Query!";
+            using var cmd = Connection.CreateCommand();
+            
+            cmd.CommandText = Sql;
+            return cmd.ExecuteNonQuery();
         }
 
         protected virtual void Dispose(bool disposing)
@@ -251,11 +237,10 @@ namespace Dataverse.Sql
             {
                 if (disposing)
                 {
-                    Client.Dispose();
+                    Connection.Close();
+                    Connection.Dispose();
                 }
 
-                DataSources = null;
-                Options = null;
                 disposedValue = true;
             }
         }

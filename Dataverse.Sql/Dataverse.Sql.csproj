@@ -25,11 +25,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="MarkMpn.Sql4Cds.Engine" Version="5.4.0" />
-		<PackageReference Include="Microsoft.Dynamics.Sdk.Messages" Version="0.5.10" />
+		<PackageReference Include="MarkMpn.Sql4Cds.Engine" Version="6.0.1" />
+		<PackageReference Include="Microsoft.Dynamics.Sdk.Messages" Version="0.5.17" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="5.0.0" />
-		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="0.5.10" />
-		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client.Dynamics" Version="0.5.10" />
+		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="0.6.1" />
+		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client.Dynamics" Version="0.6.1" />
 		<PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="150.4897.1" />
 		<PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
 	</ItemGroup>
@@ -41,21 +41,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="dataversesql.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-
-	<ItemGroup>
 		<None Include="..\Assets\DataverseLogo_xs.png">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
 		<None Include="..\LICENSE">
-			<Pack>True</Pack>
-			<PackagePath></PackagePath>
-		</None>
-		<None Include="dataversesql.json">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
