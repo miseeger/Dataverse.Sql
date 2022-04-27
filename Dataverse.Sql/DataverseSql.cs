@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.Xrm.Sdk;
 
 namespace Dataverse.Sql
 {
@@ -20,9 +21,19 @@ namespace Dataverse.Sql
         {
         }
 
-        public DataverseSql(string Connectionstring)
+        public DataverseSql(string connectionString)
         {
-            Connect(Connectionstring);
+            Connect(connectionString);
+        }
+
+        public DataverseSql(IOrganizationService service)
+        {
+            Connect(service);
+        }
+
+        public DataverseSql(IDictionary<string, DataSource> dataSources)
+        {
+            Connect(dataSources);
         }
 
 
@@ -87,6 +98,30 @@ namespace Dataverse.Sql
             {
                 Connection = new Sql4CdsConnection(connectionString +
                     $"; RequireNewInstance={(requireNewInstance ? "true" : "false")}");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.ToString());
+            }
+        }
+
+        public void Connect(IOrganizationService service)
+        {
+            try
+            {
+                Connection = new Sql4CdsConnection(service);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.ToString());
+            }
+        }
+
+        public void Connect(IDictionary<string, DataSource> dataSources)
+        {
+            try
+            {
+                Connection = new Sql4CdsConnection(dataSources);
             }
             catch (Exception ex)
             {
