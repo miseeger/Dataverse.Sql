@@ -25,6 +25,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="FastMember.Signed" Version="1.5.0" />
 		<PackageReference Include="MarkMpn.Sql4Cds.Engine" Version="6.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="5.0.0" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="0.6.1" />
