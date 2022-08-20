@@ -1,0 +1,12 @@
+{
+    "useLocalTimeZone": "true",
+    "blockUpdateWithoutWhere": "true",
+    "blockDeleteWithoutWhere": "true",
+    "returnEntityReferenceAsGuid": "true",
+    "_useBulkDelete_": "true",
+    "_batchSize_": "100",
+    "_useTdsEndpoint_": "true",
+    "_maxDegreeOfParallelism_": "10",
+    "_bypassCustomPlugins_": "false",
+    "_quotedIdentifiers_": "true"
+}

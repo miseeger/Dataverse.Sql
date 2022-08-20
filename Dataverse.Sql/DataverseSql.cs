@@ -5,7 +5,10 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Dataverse.Sql.Models;
 using Microsoft.Xrm.Sdk;
+using Microsoft.Extensions.Configuration;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
 
 namespace Dataverse.Sql
 {
@@ -37,6 +40,43 @@ namespace Dataverse.Sql
         }
 
 
+        private void setQueryOptionsFromSettingsFile()
+        {
+            var settings = new ConfigurationBuilder().AddJsonFile("dataversesql.json", optional: true).Build();
+
+            if (settings["useLocalTimeZone"] != string.Empty)
+                Connection.UseLocalTimeZone = settings["useLocalTimeZone"] == "true";
+
+            if (settings["blockUpdateWithoutWhere"] != string.Empty)
+                Connection.BlockUpdateWithoutWhere = settings["blockUpdateWithoutWhere"] == "true";
+
+            if (settings["blockDeleteWithoutWhere"] != string.Empty)
+                Connection.BlockDeleteWithoutWhere = settings["blockDeleteWithoutWhere"] == "true";
+
+            if (settings["useBulkDelete"] != string.Empty)
+                Connection.UseBulkDelete = settings["blockDeleteWithoutWhere"] == "true";
+
+            if (settings["batchSize"] != string.Empty)
+                Connection.BatchSize = int.Parse(settings["batchSize"]);
+
+            if (settings["useTDSEndpoint"] != string.Empty)
+                Connection.UseTDSEndpoint = settings["useTDSEndpoint"] == "true";
+
+            if (settings["maxDegreeOfParallelism"] != string.Empty)
+                Connection.MaxDegreeOfParallelism = int.Parse(settings["maxDegreeOfParallelism"]);
+
+            if (settings["bypassCustomPlugins"] != string.Empty)
+                Connection.BypassCustomPlugins = settings["bypassCustomPlugins"] == "true";
+
+            if (settings["quotedIdentifiers"] != string.Empty)
+                Connection.QuotedIdentifiers = settings["quotedIdentifiers"] == "true";
+
+            if (settings["returnEntityReferenceAsGuid"] != string.Empty)
+                Connection.ReturnEntityReferenceAsGuid = settings["returnEntityReferenceAsGuid"] == "true";
+
+        }
+
+
         /// <summary>
         /// Creates a ClientSecret connection string to use with the Connect() method.
         /// </summary>
@@ -48,6 +88,7 @@ namespace Dataverse.Sql
         {
             return $"AuthType=ClientSecret; ServiceUri={url}; ClientId={clientId}; ClientSecret={secret};";
         }
+
 
         // ** When using the OAuth AuthType\AuthenticationType **
         // For development and prototyping purposes Microsoft provides the following AppId or 
@@ -77,20 +118,21 @@ namespace Dataverse.Sql
             return
                 $"AuthType=OAuth; Url={url}; Username={username}; Password={password}; " +
                 $"ClientId={clientId}; LoginPrompt=Auto; RedirectUri=http://localhost; " +
-                $@"TokenCacheStorePath=%appdata%\..\local\Temp\{AppDomain.CurrentDomain.FriendlyName}\oauthcache.txt";
+                $@"TokenCacheStorePath=%appdata%\..\local\Temp\{AppDomain.CurrentDomain.FriendlyName}\dataverseoauthcache.txt";
         }
 
+
         /// <summary>
-        /// Connects to an Environment by using the provided Connectionstring, 
+        /// Connects to an Environment by using the provided ConnectionString, 
         /// sets the Client and initializes Metadata and TableSizes.
         /// </summary>
-        /// <param name="connectionstring">Only connection strings for AuthType OAuth 
+        /// <param name="connectionString">Only connection strings for AuthType OAuth 
         /// and ClientSecret are supported currently.</param>
         /// <param name="requireNewInstance">Specifies whether to reuse an existing 
         /// connection if recalled while the connection is still active. If set to true, 
         /// will force the system to create a unique connection. If set to false the 
         /// existing connection can be reused. Default value is false, if omitted.</param>
-        /// <exception cref="Exception">Exception is thrown when either connectoion to
+        /// <exception cref="Exception">Exception is thrown when either connection to
         /// the Environment fails or Metadata and TableSizes cannot be retrieved.</exception>
         public void Connect(string connectionString, bool requireNewInstance = false)
         {
@@ -98,30 +140,38 @@ namespace Dataverse.Sql
             {
                 Connection = new Sql4CdsConnection(connectionString +
                     $"; RequireNewInstance={(requireNewInstance ? "true" : "false")}");
+                setQueryOptionsFromSettingsFile();
+
             }
             catch (Exception ex)
             {
                 throw new Exception(ex.ToString());
             }
         }
+
 
         public void Connect(IOrganizationService service)
         {
             try
             {
                 Connection = new Sql4CdsConnection(service);
+                setQueryOptionsFromSettingsFile();
+
             }
             catch (Exception ex)
             {
                 throw new Exception(ex.ToString());
             }
         }
+
 
         public void Connect(IDictionary<string, DataSource> dataSources)
         {
             try
             {
                 Connection = new Sql4CdsConnection(dataSources);
+                setQueryOptionsFromSettingsFile();
+
             }
             catch (Exception ex)
             {
@@ -129,17 +179,20 @@ namespace Dataverse.Sql
             }
         }
 
+
         /// <summary>
         /// Retrieves the result of an SQL query and returns it as DataTable.
         /// </summary>
-        /// <param name="Sql">The SQL query</param>
+        /// <param name="sql">The SQL query</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Query result as DataTable</returns>
         /// <exception cref="Exception"></exception>
-        public DataTable Retrieve(string Sql)
+        public DataTable Retrieve(string sql, Dictionary<string,object> cmdParams = null)
         {
             using var cmd = Connection.CreateCommand();
 
-            cmd.CommandText = Sql;
+            cmd.CommandText = sql;
+            cmd.AddParams(cmdParams);
 
             using var reader = cmd.ExecuteReader();
 
@@ -149,29 +202,29 @@ namespace Dataverse.Sql
             return table;
         }
 
+
         /// <summary>
         /// Retrieves the result of an SQL query and returns it as generic List.
         /// </summary>
-        /// <param name="Sql">The SQL query</param>
+        /// <param name="sql">The SQL query</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Generic List</returns>
         /// <exception cref="Exception"></exception>
-        public IList<T> Retrieve<T>(string Sql)
+        public IList<T> Retrieve<T>(string sql, Dictionary<string, object> cmdParams = null)
         {
-            var result = Retrieve(Sql);
+            var result = Retrieve(sql, cmdParams);
 
-            if (result.Rows.Count > 0)
+            if (result.Rows.Count <= 0)
+                return new List<T>();
+
+            try
             {
-                try
-                {
-                    return result.ToList<T>();
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception(ex.ToString());
-                }
+                return result.ToList<T>();
             }
-
-            return new List<T>();
+            catch (Exception ex)
+            {
+                throw new Exception(ex.ToString());
+            }
         }
 
 
@@ -179,16 +232,18 @@ namespace Dataverse.Sql
         /// Retrieves the result of an SQL query and returns it as directly
         /// mapped generic List.
         /// </summary>
-        /// <param name="Sql">The SQL query</param>
+        /// <param name="sql">The SQL query</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Generic List</returns>
         /// <exception cref="Exception"></exception>
-        public IList<T> Retrieve2<T>(string Sql) where T : new()
+        public IList<T> Retrieve2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
         {
             var result = new List<T>();
 
             using var cmd = Connection.CreateCommand();
 
-            cmd.CommandText = Sql;
+            cmd.CommandText = sql;
+            cmd.AddParams(cmdParams);
 
             using var reader = cmd.ExecuteReader();
 
@@ -209,15 +264,17 @@ namespace Dataverse.Sql
             return result;
         }
 
+
         /// <summary>
         /// Retrieves a scalar value.
         /// </summary>
         /// <typeparam name="T">Type of result</typeparam>
         /// <param name="sql">Query statement</param>
-        /// <param name="addAsResult">Adds "AS Result" automatically to the sole vale to be retrieved</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
+        /// <param name="addAsResult">Adds "AS Result" automatically to the sole value to be retrieved</param>
         /// <returns>Scalar value of the given type</returns>
         /// <exception cref="Exception"></exception>
-        public T RetrieveScalar<T>(string sql, bool addAsResult = true)
+        public T RetrieveScalar<T>(string sql, Dictionary<string, object> cmdParams = null, bool addAsResult = true)
         {
             if (Regex.Match(sql, "SELECT(.*)FROM").Groups[1].ToString().Split(",").Count() > 1)
             {
@@ -233,7 +290,7 @@ namespace Dataverse.Sql
 
             try
             {
-                return (T)Retrieve<ScalarResult>(sql).FirstOrDefault()?.Result;
+                return (T)Retrieve<ScalarResult>(sql, cmdParams).FirstOrDefault()?.Result;
             }
             catch (Exception e)
             {
@@ -242,43 +299,54 @@ namespace Dataverse.Sql
             }
         }
 
+
         /// <summary>
         /// Retrieves the result of an SQL query and returns it as JSON string.
         /// </summary>
-        /// <param name="Sql">The SQL query</param>
+        /// <param name="sql">The SQL query</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>JSON</returns>
-        public string RetrieveJson(string Sql)
+        public string RetrieveJson(string sql, Dictionary<string, object> cmdParams = null)
         {
-            return Retrieve(Sql).ToJson();
+            return Retrieve(sql, cmdParams).ToJson();
         }
+
 
         /// <summary>
         /// Executes a DML Command
         /// </summary>
-        /// <param name="Sql">Thq DML command</param>
-        /// <returns>Result string returned by the Server</returns>
+        /// <param name="sql">Thq DML command</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
+        /// <returns>Result string describing the type of executed command and shows the count of rows.</returns>
         /// <exception cref="Exception"></exception>
-        public int Execute(string Sql)
+        public string Execute(string sql, Dictionary<string, object> cmdParams = null)
         {
             using var cmd = Connection.CreateCommand();
             
-            cmd.CommandText = Sql;
-            return cmd.ExecuteNonQuery();
+            cmd.CommandText = sql;
+            cmd.AddParams(cmdParams);
+
+            var rowCount = cmd.ExecuteNonQuery();
+
+            return
+                $"{rowCount} row{(rowCount != 1 ? "s" : string.Empty)} successfully {(sql.ToUpper().StartsWith("UPDATE") ? "updated" : sql.ToUpper().StartsWith("INSERT") ? "inserted" : "processed")}";
         }
+
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    Connection.Close();
-                    Connection.Dispose();
-                }
+            if (disposedValue)
+                return;
 
-                disposedValue = true;
+            if (disposing)
+            {
+                Connection.Close();
+                Connection.Dispose();
             }
+
+            disposedValue = true;
         }
+
 
         public void Dispose()
         {
@@ -287,8 +355,4 @@ namespace Dataverse.Sql
         }
     }
 
-    internal class ScalarResult
-    {
-        public object Result { get; set; }
-    }
 }

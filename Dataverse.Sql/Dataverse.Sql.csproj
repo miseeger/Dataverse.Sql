@@ -50,4 +50,14 @@
 		</None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <None Update="dataversesql.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Models\" />
+	</ItemGroup>
+
 </Project>
