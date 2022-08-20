@@ -9,6 +9,7 @@ using Dataverse.Sql.Models;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using Newtonsoft.Json;
 
 namespace Dataverse.Sql
 {
@@ -17,7 +18,7 @@ namespace Dataverse.Sql
         private bool disposedValue;
 
         public Sql4CdsConnection Connection { get; set; }
-        public bool IsReady => Connection is {State: ConnectionState.Open};
+        public bool IsReady => Connection is { State: ConnectionState.Open };
 
 
         public DataverseSql()
@@ -187,19 +188,29 @@ namespace Dataverse.Sql
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Query result as DataTable</returns>
         /// <exception cref="Exception"></exception>
-        public DataTable Retrieve(string sql, Dictionary<string,object> cmdParams = null)
+        public DataTable Retrieve(string sql, Dictionary<string, object> cmdParams = null)
         {
             using var cmd = Connection.CreateCommand();
 
             cmd.CommandText = sql;
             cmd.AddParams(cmdParams);
 
-            using var reader = cmd.ExecuteReader();
+            try
+            {
+                using var reader = cmd.ExecuteReader();
 
-            var table = new DataTable();
-            table.Load(reader);
+                var table = new DataTable();
+                table.Load(reader);
 
-            return table;
+                return table;
+            }
+            catch (Exception e)
+            {
+                throw new Exception(
+                    $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
+                    $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
+            }
+
         }
 
 
@@ -245,23 +256,32 @@ namespace Dataverse.Sql
             cmd.CommandText = sql;
             cmd.AddParams(cmdParams);
 
-            using var reader = cmd.ExecuteReader();
-
-            while (reader.Read())
+            try
             {
-                var t = new T();
-                var type = t.GetType();
+                using var reader = cmd.ExecuteReader();
 
-                for (var propIdx = 0; propIdx < reader.FieldCount; propIdx++)
+                while (reader.Read())
                 {
-                    var prop = type.GetProperty(reader.GetName(propIdx));
-                    prop?.SetValue(t, Convert.ChangeType(reader.GetValue(propIdx), prop.PropertyType), null);
+                    var t = new T();
+                    var type = t.GetType();
+
+                    for (var propIdx = 0; propIdx < reader.FieldCount; propIdx++)
+                    {
+                        var prop = type.GetProperty(reader.GetName(propIdx));
+                        prop?.SetValue(t, Convert.ChangeType(reader.GetValue(propIdx), prop.PropertyType), null);
+                    }
+
+                    result.Add(t);
                 }
 
-                result.Add(t);
+                return result;
             }
-
-            return result;
+            catch (Exception e)
+            {
+                throw new Exception(
+                    $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
+                    $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
+            }
         }
 
 
@@ -280,7 +300,8 @@ namespace Dataverse.Sql
             {
                 throw new Exception(
                     "The SQL statement retrieving a scalar value contains more than one field.\r\n" +
-                    $"Trying to execute the following SQL statement:\r\n\r\n{sql}\r\n\r\n");
+                    $"Executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
+                    $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}");
             }
 
             if (addAsResult)
@@ -295,7 +316,8 @@ namespace Dataverse.Sql
             catch (Exception e)
             {
                 throw new Exception(
-                    $"{e.Message}\r\nTrying to execute the following SQL statement:\r\n\r\n{sql}\r\n\r\n", e);
+                    $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
+                    $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
         }
 
@@ -322,14 +344,24 @@ namespace Dataverse.Sql
         public string Execute(string sql, Dictionary<string, object> cmdParams = null)
         {
             using var cmd = Connection.CreateCommand();
-            
+
             cmd.CommandText = sql;
             cmd.AddParams(cmdParams);
 
-            var rowCount = cmd.ExecuteNonQuery();
+            try
+            {
+                var rowCount = cmd.ExecuteNonQuery();
 
-            return
-                $"{rowCount} row{(rowCount != 1 ? "s" : string.Empty)} successfully {(sql.ToUpper().StartsWith("UPDATE") ? "updated" : sql.ToUpper().StartsWith("INSERT") ? "inserted" : "processed")}";
+                return
+                    $"{rowCount} row{(rowCount != 1 ? "s" : string.Empty)} successfully {(sql.ToUpper().StartsWith("UPDATE") ? "updated" : sql.ToUpper().StartsWith("INSERT") ? "inserted" : "processed")}";
+            }
+            catch (Exception e)
+            {
+                throw new Exception(
+                    $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
+                    $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
+            }
+
         }
 
 
