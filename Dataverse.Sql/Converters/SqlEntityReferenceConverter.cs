@@ -9,7 +9,7 @@ namespace Dataverse.Sql.Converters
     {
         protected override object GetValue(SqlEntityReference sqlValue)
         {
-            return sqlValue.Id == Guid.Empty ? string.Empty : sqlValue.Id;
+            return sqlValue.Id == Guid.Empty ? (object) string.Empty : sqlValue.Id;
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
