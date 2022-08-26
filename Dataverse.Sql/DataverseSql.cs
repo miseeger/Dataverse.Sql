@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using Dataverse.Sql.Models;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Extensions.Configuration;
-using Microsoft.SqlServer.TransactSql.ScriptDom;
+using Microsoft.PowerPlatform.Dataverse.Client;
 using Newtonsoft.Json;
 
 namespace Dataverse.Sql
@@ -19,6 +19,7 @@ namespace Dataverse.Sql
 
         public Sql4CdsConnection Connection { get; set; }
         public bool IsReady => Connection is { State: ConnectionState.Open };
+        public ServiceClient Service { get; private set; }
 
 
         public DataverseSql()
@@ -74,7 +75,6 @@ namespace Dataverse.Sql
 
             if (settings["returnEntityReferenceAsGuid"] != string.Empty)
                 Connection.ReturnEntityReferenceAsGuid = settings["returnEntityReferenceAsGuid"] == "true";
-
         }
 
 
@@ -115,7 +115,7 @@ namespace Dataverse.Sql
         /// <returns></returns>
         public static string GetOAuthConnectionString(string url, string username, string password = "", string clientId = "51f81489-12ee-4a9e-aaae-a2591f45987d")
         {
-            // The Passwort can be left blank if the User is already logged in with AD (kinda WinAuth)
+            // The Password can be left blank if the User is already logged in with AD (kinda WinAuth)
             return
                 $"AuthType=OAuth; Url={url}; Username={username}; Password={password}; " +
                 $"ClientId={clientId}; LoginPrompt=Auto; RedirectUri=http://localhost; " +
@@ -129,24 +129,23 @@ namespace Dataverse.Sql
         /// </summary>
         /// <param name="connectionString">Only connection strings for AuthType OAuth 
         /// and ClientSecret are supported currently.</param>
-        /// <param name="requireNewInstance">Specifies whether to reuse an existing 
-        /// connection if recalled while the connection is still active. If set to true, 
-        /// will force the system to create a unique connection. If set to false the 
-        /// existing connection can be reused. Default value is false, if omitted.</param>
-        /// <exception cref="Exception">Exception is thrown when either connection to
+        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when either connection to
         /// the Environment fails or Metadata and TableSizes cannot be retrieved.</exception>
-        public void Connect(string connectionString, bool requireNewInstance = false)
+        public void Connect(string connectionString)
         {
+            Service = new ServiceClient(connectionString);
+
+            if (!Service.IsReady)
+                throw new DataverseSqlException(Service.LastError);
+
             try
             {
-                Connection = new Sql4CdsConnection(connectionString +
-                    $"; RequireNewInstance={(requireNewInstance ? "true" : "false")}");
+                Connection = new Sql4CdsConnection(Service);
                 setQueryOptionsFromSettingsFile();
-
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.ToString());
+                throw new DataverseSqlException(ex.ToString());
             }
         }
 
@@ -156,12 +155,16 @@ namespace Dataverse.Sql
             try
             {
                 Connection = new Sql4CdsConnection(service);
-                setQueryOptionsFromSettingsFile();
 
+                Service = Service != (ServiceClient)service
+                    ? (ServiceClient)service
+                    : Service;
+
+                setQueryOptionsFromSettingsFile();
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.ToString());
+                throw new DataverseSqlException(ex.ToString());
             }
         }
 
@@ -170,13 +173,15 @@ namespace Dataverse.Sql
         {
             try
             {
-                Connection = new Sql4CdsConnection(dataSources);
+                var ds = dataSources.First();
+                var fds = new Dictionary<string, DataSource> { { ds.Key, ds.Value } };
+                Connection = new Sql4CdsConnection(fds);
+                Service = (ServiceClient)ds.Value.Connection;
                 setQueryOptionsFromSettingsFile();
-
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.ToString());
+                throw new DataverseSqlException(ex.ToString());
             }
         }
 
@@ -187,7 +192,7 @@ namespace Dataverse.Sql
         /// <param name="sql">The SQL query</param>
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Query result as DataTable</returns>
-        /// <exception cref="Exception"></exception>
+        /// <exception cref="DataverseSqlException"></exception>
         public DataTable Retrieve(string sql, Dictionary<string, object> cmdParams = null)
         {
             using var cmd = Connection.CreateCommand();
@@ -206,7 +211,7 @@ namespace Dataverse.Sql
             }
             catch (Exception e)
             {
-                throw new Exception(
+                throw new DataverseSqlException(
                     $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
@@ -220,7 +225,7 @@ namespace Dataverse.Sql
         /// <param name="sql">The SQL query</param>
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Generic List</returns>
-        /// <exception cref="Exception"></exception>
+        /// <exception cref="DataverseSqlException"></exception>
         public IList<T> Retrieve<T>(string sql, Dictionary<string, object> cmdParams = null)
         {
             var result = Retrieve(sql, cmdParams);
@@ -234,7 +239,7 @@ namespace Dataverse.Sql
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.ToString());
+                throw new DataverseSqlException(ex.ToString());
             }
         }
 
@@ -246,7 +251,7 @@ namespace Dataverse.Sql
         /// <param name="sql">The SQL query</param>
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Generic List</returns>
-        /// <exception cref="Exception"></exception>
+        /// <exception cref="DataverseSqlException"></exception>
         public IList<T> Retrieve2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
         {
             var result = new List<T>();
@@ -278,7 +283,7 @@ namespace Dataverse.Sql
             }
             catch (Exception e)
             {
-                throw new Exception(
+                throw new DataverseSqlException(
                     $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
@@ -293,12 +298,12 @@ namespace Dataverse.Sql
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <param name="addAsResult">Adds "AS Result" automatically to the sole value to be retrieved</param>
         /// <returns>Scalar value of the given type</returns>
-        /// <exception cref="Exception"></exception>
+        /// <exception cref="DataverseSqlException"></exception>
         public T RetrieveScalar<T>(string sql, Dictionary<string, object> cmdParams = null, bool addAsResult = true)
         {
             if (Regex.Match(sql, "SELECT(.*)FROM").Groups[1].ToString().Split(",").Count() > 1)
             {
-                throw new Exception(
+                throw new DataverseSqlException(
                     "The SQL statement retrieving a scalar value contains more than one field.\r\n" +
                     $"Executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}");
@@ -315,7 +320,7 @@ namespace Dataverse.Sql
             }
             catch (Exception e)
             {
-                throw new Exception(
+                throw new DataverseSqlException(
                     $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
@@ -340,7 +345,7 @@ namespace Dataverse.Sql
         /// <param name="sql">Thq DML command</param>
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Result string describing the type of executed command and shows the count of rows.</returns>
-        /// <exception cref="Exception"></exception>
+        /// <exception cref="DataverseSqlException"></exception>
         public string Execute(string sql, Dictionary<string, object> cmdParams = null)
         {
             using var cmd = Connection.CreateCommand();
@@ -357,7 +362,7 @@ namespace Dataverse.Sql
             }
             catch (Exception e)
             {
-                throw new Exception(
+                throw new DataverseSqlException(
                     $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
