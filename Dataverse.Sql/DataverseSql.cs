@@ -10,6 +10,9 @@ using Microsoft.Xrm.Sdk;
 using Microsoft.Extensions.Configuration;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Newtonsoft.Json;
+using Dataverse.Sql.Utils;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
+using Newtonsoft.Json.Linq;
 
 namespace Dataverse.Sql
 {
@@ -46,34 +49,34 @@ namespace Dataverse.Sql
         {
             var settings = new ConfigurationBuilder().AddJsonFile("dataversesql.json", optional: true).Build();
 
-            if (settings["useLocalTimeZone"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["useLocalTimeZone"]))
                 Connection.UseLocalTimeZone = settings["useLocalTimeZone"] == "true";
 
-            if (settings["blockUpdateWithoutWhere"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["blockUpdateWithoutWhere"]))
                 Connection.BlockUpdateWithoutWhere = settings["blockUpdateWithoutWhere"] == "true";
 
-            if (settings["blockDeleteWithoutWhere"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["blockDeleteWithoutWhere"]))
                 Connection.BlockDeleteWithoutWhere = settings["blockDeleteWithoutWhere"] == "true";
 
-            if (settings["useBulkDelete"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["useBulkDelete"]))
                 Connection.UseBulkDelete = settings["blockDeleteWithoutWhere"] == "true";
 
-            if (settings["batchSize"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["batchSize"]))
                 Connection.BatchSize = int.Parse(settings["batchSize"]);
 
-            if (settings["useTDSEndpoint"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["useTDSEndpoint"]))
                 Connection.UseTDSEndpoint = settings["useTDSEndpoint"] == "true";
 
-            if (settings["maxDegreeOfParallelism"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["maxDegreeOfParallelism"]))
                 Connection.MaxDegreeOfParallelism = int.Parse(settings["maxDegreeOfParallelism"]);
 
-            if (settings["bypassCustomPlugins"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["bypassCustomPlugins"]))
                 Connection.BypassCustomPlugins = settings["bypassCustomPlugins"] == "true";
 
-            if (settings["quotedIdentifiers"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["quotedIdentifiers"]))
                 Connection.QuotedIdentifiers = settings["quotedIdentifiers"] == "true";
 
-            if (settings["returnEntityReferenceAsGuid"] != string.Empty)
+            if (!string.IsNullOrEmpty(settings["returnEntityReferenceAsGuid"]))
                 Connection.ReturnEntityReferenceAsGuid = settings["returnEntityReferenceAsGuid"] == "true";
         }
 
@@ -124,13 +127,14 @@ namespace Dataverse.Sql
 
 
         /// <summary>
-        /// Connects to an Environment by using the provided ConnectionString, 
-        /// sets the Client and initializes Metadata and TableSizes.
+        /// Connects to an Environment by using the provided ConnectionString 
+        /// and sets the Service property, establishes the Sql4Cds ADO Connection
+        /// using this ServiceClient (if ready).
         /// </summary>
         /// <param name="connectionString">Only connection strings for AuthType OAuth 
         /// and ClientSecret are supported currently.</param>
-        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when either connection to
-        /// the Environment fails or Metadata and TableSizes cannot be retrieved.</exception>
+        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when
+        /// the ADO connection fails.</exception>
         public void Connect(string connectionString)
         {
             Service = new ServiceClient(connectionString);
@@ -150,15 +154,27 @@ namespace Dataverse.Sql
         }
 
 
+        /// <summary>
+        /// Establishes the Sql4Cds ADO Connection using an already active (connected)
+        /// ServiceClient (IOrganizationService) and sets the Service property if
+        /// it differs from the currently set Service.
+        /// </summary>
+        /// <param name="service">ServiceClient (IOrganizationService) used to
+        /// establish the ADO connection.</param>
+        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when
+        /// the ADO connection fails.</exception>
         public void Connect(IOrganizationService service)
         {
             try
             {
                 Connection = new Sql4CdsConnection(service);
 
-                Service = Service != (ServiceClient)service
-                    ? (ServiceClient)service
-                    : Service;
+                if (!UnitTestDetector.IsInUnitTest)
+                {
+                    Service = Service != (ServiceClient)service
+                        ? (ServiceClient)service
+                        : Service;
+                }
 
                 setQueryOptionsFromSettingsFile();
             }
@@ -169,6 +185,14 @@ namespace Dataverse.Sql
         }
 
 
+        /// <summary>
+        /// Establishes the Sql4Cds ADO Connection using the first of the given
+        /// DataSources and sets the Service from this DataSource
+        /// </summary>
+        /// <param name="dataSources">DataSources to connect to, but only the
+        /// first one is used, here!</param>
+        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when
+        /// the ADO connection fails.</exception>
         public void Connect(IDictionary<string, DataSource> dataSources)
         {
             try
@@ -176,7 +200,12 @@ namespace Dataverse.Sql
                 var ds = dataSources.First();
                 var fds = new Dictionary<string, DataSource> { { ds.Key, ds.Value } };
                 Connection = new Sql4CdsConnection(fds);
-                Service = (ServiceClient)ds.Value.Connection;
+
+                if (!UnitTestDetector.IsInUnitTest)
+                {
+                    Service = (ServiceClient)ds.Value.Connection;
+                }
+
                 setQueryOptionsFromSettingsFile();
             }
             catch (Exception ex)
@@ -202,10 +231,33 @@ namespace Dataverse.Sql
 
             try
             {
-                using var reader = cmd.ExecuteReader();
+                var reader = cmd.ExecuteReader();
 
                 var table = new DataTable();
-                table.Load(reader);
+
+                if (!sql.ToUpper().Contains("FROM"))
+                {
+                    if (reader.Read())
+                    {
+                        for (var i = 0; i < reader.FieldCount; i++)
+                        {
+                            var col = new DataColumn(reader.GetName(i), reader.GetValue(i).GetType());
+                            col.AllowDBNull = true;
+                            col.Unique = false;
+                            col.AutoIncrement = false;
+                            table.Columns.Add(col);
+                        }
+                    }
+
+                    reader = cmd.ExecuteReader();
+                }
+
+                if (reader.HasRows)
+                {
+                    table.Load(reader);
+                }
+
+                reader.Dispose();
 
                 return table;
             }
@@ -215,7 +267,6 @@ namespace Dataverse.Sql
                     $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
-
         }
 
 
@@ -230,7 +281,7 @@ namespace Dataverse.Sql
         {
             var result = Retrieve(sql, cmdParams);
 
-            if (result.Rows.Count <= 0)
+            if (result.Rows.Count == 0)
                 return new List<T>();
 
             try
@@ -366,7 +417,37 @@ namespace Dataverse.Sql
                     $"{e.Message}\r\n... while executing the following SQL statement:\r\n\r\n{sql}\r\n\r\n" +
                     $"Parameters: {JsonConvert.SerializeObject(cmdParams, Formatting.Indented)}", e);
             }
+        }
 
+
+        /// <summary>
+        /// Executes an SQL script
+        /// </summary>
+        /// <param name="sql"></param>
+        /// <param name="cmdParams"></param>
+        /// <returns>Results of script artifacts as pretty printed JSON string.</returns>
+        public string ExecuteScript(string sql, Dictionary<string, object> cmdParams = null)
+        {
+            var jsonResults = new List<string>();
+
+            using var cmd = Connection.CreateCommand();
+
+            cmd.CommandText = sql;
+            cmd.AddParams(cmdParams);
+
+            using var reader = cmd.ExecuteReader();
+
+            var resIndex = 0;
+            while (!reader.IsClosed)
+            {
+                var table = new DataTable();
+                table.Load(reader);
+                jsonResults.Add($"{{\r\n\"Result{resIndex++}\":  {table.ToJson()}\r\n}}");
+            }
+
+            return JToken
+                .Parse($"{{\r\n\"ScriptResults\":[{string.Join(",\r\n", jsonResults)}]\r\n}}")
+                .ToString();
         }
 
 
