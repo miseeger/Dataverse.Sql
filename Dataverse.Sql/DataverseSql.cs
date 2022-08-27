@@ -303,7 +303,7 @@ namespace Dataverse.Sql
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>Generic List</returns>
         /// <exception cref="DataverseSqlException"></exception>
-        public IList<T> Retrieve2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
+        public List<T> Retrieve2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
         {
             var result = new List<T>();
 
@@ -387,6 +387,18 @@ namespace Dataverse.Sql
         public string RetrieveJson(string sql, Dictionary<string, object> cmdParams = null)
         {
             return Retrieve(sql, cmdParams).ToJson();
+        }
+
+
+        /// <summary>
+        /// Retrieves the result of an SQL query from a directly mapped generic List and returns it as JSON string.
+        /// </summary>
+        /// <param name="sql">The SQL query</param>
+        /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
+        /// <returns>JSON</returns>
+        public string RetrieveJson2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
+        {
+            return JsonConvert.SerializeObject(Retrieve2<T>(sql, cmdParams), Formatting.Indented);
         }
 
 
