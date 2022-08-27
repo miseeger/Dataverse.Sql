@@ -1,12 +1,6 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
-using System.Runtime.Intrinsics.Arm;
-using Dataverse.Sql.Extensions;
-using MarkMpn.Sql4Cds.Engine;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Xrm.Sdk;
 
@@ -66,8 +60,6 @@ namespace Dataverse.Sql.Tests
                 {"@param1", 1},
                 {"@param2", "text"}
             };
-
-            // https://stackoverflow.com/a/45850097
 
             using var dvSql = new DataverseSql(_localDataSource);
 

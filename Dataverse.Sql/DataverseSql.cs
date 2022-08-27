@@ -11,7 +11,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Newtonsoft.Json;
 using Dataverse.Sql.Utils;
-using Microsoft.SqlServer.TransactSql.ScriptDom;
 using Newtonsoft.Json.Linq;
 
 namespace Dataverse.Sql
@@ -235,6 +234,7 @@ namespace Dataverse.Sql
 
                 var table = new DataTable();
 
+                // https://stackoverflow.com/a/45850097
                 if (!sql.ToUpper().Contains("FROM"))
                 {
                     if (reader.Read())

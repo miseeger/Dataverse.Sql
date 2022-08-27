@@ -1,5 +1,4 @@
-﻿using System.Data.Common;
-using System;
+﻿using System;
 using MarkMpn.Sql4Cds.Engine;
 
 namespace Dataverse.Sql
