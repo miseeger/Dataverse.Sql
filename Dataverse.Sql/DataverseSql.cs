@@ -10,7 +10,6 @@ using Microsoft.Xrm.Sdk;
 using Microsoft.Extensions.Configuration;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Newtonsoft.Json;
-using Dataverse.Sql.Utils;
 using Newtonsoft.Json.Linq;
 
 namespace Dataverse.Sql
@@ -22,6 +21,7 @@ namespace Dataverse.Sql
         public Sql4CdsConnection Connection { get; set; }
         public bool IsReady => Connection is { State: ConnectionState.Open };
         public ServiceClient Service { get; private set; }
+        public IDictionary<string, DataSource> DataSources { get; private set; }
 
 
         public DataverseSql()
@@ -168,12 +168,9 @@ namespace Dataverse.Sql
             {
                 Connection = new Sql4CdsConnection(service);
 
-                if (!UnitTestDetector.IsInUnitTest)
-                {
-                    Service = Service != (ServiceClient)service
-                        ? (ServiceClient)service
-                        : Service;
-                }
+                Service = Service != (ServiceClient)service
+                    ? (ServiceClient)service
+                    : Service;
 
                 setQueryOptionsFromSettingsFile();
             }
@@ -185,8 +182,8 @@ namespace Dataverse.Sql
 
 
         /// <summary>
-        /// Establishes the Sql4Cds ADO Connection using the first of the given
-        /// DataSources and sets the Service from this DataSource
+        /// Establishes the Sql4Cds ADO Connection using the given DataSources which
+        /// are stored in property DataSources for further usage.
         /// </summary>
         /// <param name="dataSources">DataSources to connect to, but only the
         /// first one is used, here!</param>
@@ -196,15 +193,8 @@ namespace Dataverse.Sql
         {
             try
             {
-                var ds = dataSources.First();
-                var fds = new Dictionary<string, DataSource> { { ds.Key, ds.Value } };
-                Connection = new Sql4CdsConnection(fds);
-
-                if (!UnitTestDetector.IsInUnitTest)
-                {
-                    Service = (ServiceClient)ds.Value.Connection;
-                }
-
+                Connection = new Sql4CdsConnection(dataSources);
+                DataSources = dataSources;
                 setQueryOptionsFromSettingsFile();
             }
             catch (Exception ex)
