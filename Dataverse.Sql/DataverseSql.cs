@@ -11,36 +11,95 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace Dataverse.Sql
 {
+    /// <summary>
+    /// DataversSql Encapsulates the SQL4Cds Engine and adds some convenience to the standard ADO.NET
+    /// connection interface. It implements IDisposable so it is recommended to use it with a use command.
+    /// </summary>
     public class DataverseSql : IDisposable
     {
         private bool disposedValue;
 
         public Sql4CdsConnection Connection { get; set; }
         public bool IsReady => Connection is { State: ConnectionState.Open };
-        public ServiceClient Service { get; private set; }
+
+        public string[] ConnectionStrings { get; private set; }
+        public string MainConnectionString => ConnectionStrings?[0];
+        public IOrganizationService[] Services { get; private set; }
+        public IOrganizationService MainService => Services?[0];
         public IDictionary<string, DataSource> DataSources { get; private set; }
+        public DataSource MainDataSource => DataSources?.First().Value;
 
 
-        public DataverseSql()
+        /// <summary>
+        /// Creates a new <see cref="DataverseSql"/> wrapper using the specified XRM connection string(s)
+        /// </summary>
+        /// <param name="connectionStrings">The list of connection strings to use to connect to the Dataverse / Dynamics 365 instance(s)</param>
+        public DataverseSql(params string[] connectionStrings): this(Connect(connectionStrings))
         {
+            ConnectionStrings = connectionStrings;
         }
 
-        public DataverseSql(string connectionString)
+        /// <summary>
+        /// Creates a new <see cref="DataverseSql"/> wrapper using the specified <see cref="IOrganizationService"/>(s)
+        /// </summary>
+        /// <param name="svc">The list of <see cref="IOrganizationService"/>s to use</param>
+        public DataverseSql(params IOrganizationService[] svc) : this(BuildDataSources(svc))
         {
-            Connect(connectionString);
+            Services = svc;
         }
 
-        public DataverseSql(IOrganizationService service)
-        {
-            Connect(service);
-        }
-
+        /// <summary>
+        /// Creates a new <see cref="DataverseSql"/> wrapper using the specified list of data sources
+        /// </summary>
+        /// <param name="dataSources">The list of data sources to use, indexed by <see cref="DataSource.Name"/></param>
         public DataverseSql(IDictionary<string, DataSource> dataSources)
         {
-            Connect(dataSources);
+            try
+            {
+                Connection = new Sql4CdsConnection(dataSources);
+                DataSources = dataSources;
+                setQueryOptionsFromSettingsFile();
+            }
+            catch (Exception ex)
+            {
+                throw new DataverseSqlException(ex.ToString());
+            }
+        }
+
+
+        private static IOrganizationService[] Connect(string[] connectionStrings)
+        {
+            var orgs = new List<IOrganizationService>();
+
+            foreach (var connectionString in connectionStrings)
+            {
+                var org = new ServiceClient(connectionString);
+
+                if (!org.IsReady)
+                    throw new Sql4CdsException(org.LastError);
+
+                orgs.Add(org);
+            }
+
+            return orgs.ToArray();
+        }
+
+
+        private static IDictionary<string, DataSource> BuildDataSources(IOrganizationService[] orgs)
+        {
+            var dataSources = new Dictionary<string, DataSource>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var org in orgs)
+            {
+                var ds = new DataSource(org);
+                dataSources[ds.Name] = ds;
+            }
+
+            return dataSources;
         }
 
 
@@ -126,85 +185,6 @@ namespace Dataverse.Sql
 
 
         /// <summary>
-        /// Connects to an Environment by using the provided ConnectionString 
-        /// and sets the Service property, establishes the Sql4Cds ADO Connection
-        /// using this ServiceClient (if ready).
-        /// </summary>
-        /// <param name="connectionString">Only connection strings for AuthType OAuth 
-        /// and ClientSecret are supported currently.</param>
-        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when
-        /// the ADO connection fails.</exception>
-        public void Connect(string connectionString)
-        {
-            Service = new ServiceClient(connectionString);
-
-            if (!Service.IsReady)
-                throw new DataverseSqlException(Service.LastError);
-
-            try
-            {
-                Connection = new Sql4CdsConnection(Service);
-                setQueryOptionsFromSettingsFile();
-            }
-            catch (Exception ex)
-            {
-                throw new DataverseSqlException(ex.ToString());
-            }
-        }
-
-
-        /// <summary>
-        /// Establishes the Sql4Cds ADO Connection using an already active (connected)
-        /// ServiceClient (IOrganizationService) and sets the Service property if
-        /// it differs from the currently set Service.
-        /// </summary>
-        /// <param name="service">ServiceClient (IOrganizationService) used to
-        /// establish the ADO connection.</param>
-        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when
-        /// the ADO connection fails.</exception>
-        public void Connect(IOrganizationService service)
-        {
-            try
-            {
-                Connection = new Sql4CdsConnection(service);
-
-                Service = Service != (ServiceClient)service
-                    ? (ServiceClient)service
-                    : Service;
-
-                setQueryOptionsFromSettingsFile();
-            }
-            catch (Exception ex)
-            {
-                throw new DataverseSqlException(ex.ToString());
-            }
-        }
-
-
-        /// <summary>
-        /// Establishes the Sql4Cds ADO Connection using the given DataSources which
-        /// are stored in property DataSources for further usage.
-        /// </summary>
-        /// <param name="dataSources">DataSources to connect to, but only the
-        /// first one is used, here!</param>
-        /// <exception cref="DataverseSqlException">DataverseSqlException is thrown when
-        /// the ADO connection fails.</exception>
-        public void Connect(IDictionary<string, DataSource> dataSources)
-        {
-            try
-            {
-                Connection = new Sql4CdsConnection(dataSources);
-                DataSources = dataSources;
-                setQueryOptionsFromSettingsFile();
-            }
-            catch (Exception ex)
-            {
-                throw new DataverseSqlException(ex.ToString());
-            }
-        }
-
-
-        /// <summary>
         /// Retrieves the result of an SQL query and returns it as DataTable.
         /// </summary>
         /// <param name="sql">The SQL query</param>
@@ -286,7 +266,7 @@ namespace Dataverse.Sql
 
 
         /// <summary>
-        /// Retrieves the result of an SQL query and returns it as directly
+        /// Alternatively retrieves the result of an SQL query and returns it as directly
         /// mapped generic List.
         /// </summary>
         /// <param name="sql">The SQL query</param>
@@ -295,7 +275,7 @@ namespace Dataverse.Sql
         /// <exception cref="DataverseSqlException"></exception>
         public List<T> Retrieve2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
         {
-            var result = new List<T>();
+             var result = new List<T>();
 
             using var cmd = Connection.CreateCommand();
 
@@ -313,7 +293,7 @@ namespace Dataverse.Sql
 
                     for (var propIdx = 0; propIdx < reader.FieldCount; propIdx++)
                     {
-                        var prop = type.GetProperty(reader.GetName(propIdx));
+                        var prop = type.GetProperty(reader.GetName(propIdx), BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
                         prop?.SetValue(t, Convert.ChangeType(reader.GetValue(propIdx), prop.PropertyType), null);
                     }
 
@@ -381,14 +361,16 @@ namespace Dataverse.Sql
 
 
         /// <summary>
-        /// Retrieves the result of an SQL query from a directly mapped generic List and returns it as JSON string.
+        /// Retrieves the result of an SQL query from the alternative retrieval method.
         /// </summary>
         /// <param name="sql">The SQL query</param>
         /// <param name="cmdParams">Parameters as Key-Value-Pairs</param>
         /// <returns>JSON</returns>
         public string RetrieveJson2<T>(string sql, Dictionary<string, object> cmdParams = null) where T : new()
         {
-            return JsonConvert.SerializeObject(Retrieve2<T>(sql, cmdParams), Formatting.Indented);
+            var result = Retrieve2<T>(sql, cmdParams);
+
+            return JsonConvert.SerializeObject(result, Formatting.Indented);
         }
 
 
