@@ -1,11 +1,11 @@
 # ![DataverseLogo](Assets/DataverseLogo_xs.png) Dataverse.Sql
 [![Nuget](https://img.shields.io/nuget/v/Dataverse.Sql)](https://www.nuget.org/packages/Dataverse.Sql) [![lic](https://img.shields.io/badge/license-MIT-blue)](https://github.com/miseeger/Dataverse.Sql/blob/main/LICENSE)
 
-This project uses the code of [Mark Carrington's](https://markcarrington.dev/sql-4-cds/) sole [SQL 4 CDS](https://github.com/MarkMpn/Sql4Cds) engine which originally targets only full framework. The original engine and their tests were ported to .NET5 (Core). Some modifications were necassary since Dataverse.Sql uses the [Microsoft.PowerPlatform.Dataverse.Client](https://github.com/microsoft/PowerPlatform-DataverseServiceClient) but the original namespace is left as is.
+This project is a dotNET (Core) wrapper around [Mark Carrington's](https://markcarrington.dev/sql-4-cds/) [SQL 4 Cds](https://github.com/MarkMpn/Sql4Cds) engine.
 
-Dataverse.Sql wraps around the SQL 4 CDS engine and exposes the methods to retrieve data from your Dataverse Environment via SQL. It also provides the opportunity to set the engine options in a settings file (`dataversesql.json`) which is delivered with the package.
+Dataverse.Sql adds convenience methods to retrieve data from your Dataverse Environment via SQL, using the `Sql4CdsConnection` with its standard ADO.NET connection interface. It also provides the opportunity to set the engine options in a settings file (`dataversesql.json`) which is delivered with the package.
 
-This library will continuously be synchonized with changes in the SQL 4 CDS engine. Version numbers will be accordingly updated. The Revision number of the Dataverse.Sql version will hereby be taken from the Version number of the used Dataverse Client (currently using `0.5.10` which becomes `.510`)
+This library will continuously be synchonized with the latest SQL 4 CDS engine. Version numbers will be accordingly updated. So the version 6.4.0 of Dataverse.Sql uses the according version of the SQL4Cds engine.
 
 The SQL engine is able to convert the provided SQL query into the corresponding [FetchXML](https://docs.microsoft.com/en-us/powerapps/developer/common-data-service/fetchxml-schema) syntax and allows the associated query to be executed, including the following types of query:
 
@@ -40,6 +40,8 @@ WHERE
     emailaddress1 IS NULL
 ```
 
+> ✅ Although you are writing SQL, you are not directly running the queries against the back-end database. All data retrieval and modification is done through the supported Dataverse API. Running an UPDATE/INSERT/DELETE command against the underlying SQL database is unsafe, but the same query in SQL 4 CDS is translated to safe & supported API requests.
+
 The engine converts all the SQL syntax that has a direct equivalent in FetchXML. It also attempts to support some more SQL features that do not have an equivalent in FetchXML, such as calculated fields, `HAVING` clauses and more.
 
 When executing a query it will take into account specific Dataverse features to improve the performance or results compared to
@@ -73,29 +75,30 @@ The file which holds the engine's options must be named `dataversesql.json` and 
 ```json
 {
     "useLocalTimeZone": "true",
-    "cancelled": "false",
     "blockUpdateWithoutWhere": "true",
-    "blockDeleteWithoutWhere": "false",
-    "useBulkDelete": "false",
-    "batchSize": "1",
-    "useTdsEndpoint": "false",
-    "useRetrieveTotalRecordCount": "true",
-    "maxDegreeOfParallelism": "10",
-    "columnComparisonAvailable": "true",
-    "bypassCustomPlugins": "false"
+    "blockDeleteWithoutWhere": "true",
+    "returnEntityReferenceAsGuid": "true",
+    "_useBulkDelete_": "true",
+    "_batchSize_": "100",
+    "_useTdsEndpoint_": "true",
+    "_maxDegreeOfParallelism_": "10",
+    "_bypassCustomPlugins_": "false",
+    "_quotedIdentifiers_": "true"
 }
 ```
 It must be provided in the project's folder that uses Dataverse.Sql and "copied if newer".
+
+> All entries in the above given JSON that are prefixed and suffixed by an underscore are set by default with the given values so it is not needed to override if you agree with the defaults. If you disagree with the defaults then delete the underscores of the apropriate option and set your value.
 
 ### Connecting to the Dataverse
 
 To connect to a Dataverse Environment you just have to instantiate a `Dataverse.Sql.Environment` object and provide a valid connection string to the constructor.
 
 ```c#
-using (DataverseSqlTest = new DataverseSql(DataverseSql.GetClientSecretConnectionString(
+using var dvSql = new DataverseSql(DataverseSql.GetClientSecretConnectionString(
     "https://myTestEnv.crm.microsoft.com", "51f81489-12ee-4a9e-aaae-a2591f45987d", "TopSecret")))
 {
-    if (DataverseTestEnv.IsReady)
+    if (dvSql.IsReady)
     {
         // ... your actions
     }
@@ -111,10 +114,6 @@ Please be aware that only OAuth and ClientSecret AuthTypes are provided by the c
 Here you'll find how to use the various methods in order to query your Environment:
 
 ```c#
-// Fetch (obsolete) -> EntityCollection
-var fetchResult = DataverseSqlTest.Fetch("SELECT accountid, name FROM account");
-Console.WriteLine($"Fetching Accounts: {fetchResult.Entities.Count} Entities.\r\n");
-
 // Retrieve() -> DataTable
 var retrieveResult = DataverseSqlTest.Retrieve("SELECT accountid, name FROM account");
 Console.WriteLine($"Retrieving Accounts: {retrieveResult.Rows.Count} Rows.\r\n");
@@ -147,7 +146,7 @@ Console.WriteLine($"Retrieving Salesorders: {salesorderResult.Count} Order retri
 
 ### Executing DML Statements
 
-For executing DML statements you have to use the  `Execute()` by just providing your CUD command. The Result of the method is the result message returned by the server.
+For executing DML statements you have to use the  `Execute()` by just providing your CUD command. The Result of the method is a result message.
 
 ```c#
 var execResult = DataverseSqlTest.Execute(
