@@ -90,6 +90,34 @@ It must be provided in the project's folder that uses Dataverse.Sql and "copied 
 
 > All entries in the above given JSON that are prefixed and suffixed by an underscore are set by default with the given values so it is not needed to override if you agree with the defaults. If you disagree with the defaults then delete the underscores of the apropriate option and set your value.
 
+Hiere are the properties available on the `Sql4CdsConnection` class that you can use to control exactly how your queries are executed. Most of them can be set from the .json-File described above. Those marked with "*" will not be set from this file.
+
+| Property                       | Description                                                  |
+| ------------------------------ | ------------------------------------------------------------ |
+| BatchSize`                     | When executing DML operations, how many requests should be sent to the server at once? |
+| `BypassCustomPlugins`          | When executing DML operations, should custom plugins be bypassed? |
+| `UseLocalTimeZone`             | When working with date values, this property indicates whether the local or UTC time zone should be used. |
+| `MaxDegreeOfParallelism`       | How many requests can be made in parallel? Currently used for DML and partitioned aggregate queries. |
+| `UseTDSEndpoint`               | Indicates if the preview TDS Endpoint should be used where possible to execute SELECT queries. |
+| `BlockDeleteWithoutWhere`      | Indicates if an error should be produced if running a DELETE query without a corresponding WHERE clause. |
+| `BlockUpdateWithoutWhere`      | Indicates if an error should be produced if running a UPDATE query without a corresponding WHERE clause. |
+| `UseBulkDelete`                | Set to `true` to use a bulk delete job instead of deleting individual records for a DELETE query. |
+| `ReturnEntityReferenceAsGuid`  | Indicates if lookup values should be returned as simple `Guid` values rather than the default `SqlEntityReference` type. |
+| `UseRetrieveTotalRecordCount`* | Indicates if a [RetrieveTotalRecordCountRequest](https://docs.microsoft.com/dotnet/api/microsoft.crm.sdk.messages.retrievetotalrecordcountrequest?WT.mc_id=DX-MVP-5004203) request should be used for simple `COUNT(*)` queries. This lets the query run faster but may produce out-of-date results. |
+| `QuotedIdentifiers`*           | Indicates if `"` can be used to quote identifiers such as column and table names. Equivalent to `SET QUOTED_IDENTIFIERS ON`. |
+
+### Events
+
+There are also events that you can attach to to receive notifications while a query is executing. The `InfoMessage` and `StatementCompleted` events follow the pattern provided by the SqlClient classes for SQL Server, but add extra data specific to the underlaying `Sql4CdsConnection`.
+
+| Event                                         | Description                                                  |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `PreDelete`<br />`PreInsert`<br />`PreUpdate` | These events on the connection are raised just before an INSERT/DELETE/UPDATE command is about to be executed. The event argument includes the metadata of the entity type that will be affected along with the number of rows. The event handler can prevent the operation by setting the `Cancel` property of the event argument to `true`. Cancelling the operation will also cancel the entire batch. |
+| `PreRetrieve`                                 | This event on the connection is raised just before more data is about to be retrieved from the server. The event argument contains the number of rows already retrieved so far. The event handler can prevent the retrieval from continuing by setting the `Cancel` property of the event argument to `true`. Cancelling a data retrieval will not cancel the entire batch, but will cause it to operate only on partial results. |
+| `Progress`                                    | This event on the connection is raised when there is some update to the internal progress of executing a query, and can be used to provide feedback to the user that their query is progressing. |
+| `InfoMessage`                                 | This event on the connection is raised when there is some textual output from the query available. |
+| `StatementCompleted`                          | This event on the command is raised when a statement within the current query has completed successfully. The event arguments show the number of records that were affected by the query as well as the details of the internal query plan that was executed for the statement. |
+
 ### Connecting to the Dataverse
 
 To connect to a Dataverse Environment you just have to instantiate a `Dataverse.Sql.Environment` object and provide a valid connection string to the constructor.
@@ -154,3 +182,26 @@ var execResult = DataverseSqlTest.Execute(
 );
 Console.WriteLine($"Update done: {execResult}\r\n");
 ```
+
+### Using Sql4CdsConnection from DataverseSql
+
+Even if the `Sql4CdsConnection` Instance is encapsulated in `DataverseSql` it is still possible to get direct access to it. It is available by accessing the ´Connection´ property:
+
+```c#
+using var dvSql = new DataverseSql(DataverseSql.GetClientSecretConnectionString(
+    "https://myTestEnv.crm.microsoft.com", "51f81489-12ee-4a9e-aaae-a2591f45987d", "TopSecret")))
+
+using var cmd = dvSql.Connection.CreateCommand();
+
+cmd.CommandText = "SELECT DISTINCT lastname, firstname FROM contact ORDER BY 1,2 WHERE lastname LIKE @param1";
+cmd.AddParams(new Dictionary<string, object> { {"@param1", "See%"} });
+
+using var reader = cmd.ExecuteReader();
+
+var table = new DataTable();
+table.Load(reader);
+
+var jsonResult = table.ToJson()
+```
+
+ 
