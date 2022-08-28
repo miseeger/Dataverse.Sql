@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dataverse.Sql.Tests.TestModels;
+using FakeXrmEasy.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Xrm.Sdk;
 
@@ -10,6 +12,28 @@ namespace Dataverse.Sql.Tests
     [TestClass]
     public class DataverseSqlTests : FakeXrmEasyTestsBase
     {
+        public void prepareAccounts()
+        {
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+
+            _context.Data["account"] = new Dictionary<Guid, Entity>
+            {
+                [id1] = new Entity("account", id1)
+                {
+                    ["accountid"] = id1,
+                    ["name"] = "Test1",
+                    ["employees"] = "12"
+                },
+                [id2] = new Entity("account", id2)
+                {
+                    ["accountid"] = id2,
+                    ["name"] = "Test2",
+                    ["employees"] = "100"
+                }
+            };
+        }
+
 
         [TestMethod]
         public void SelectArithmetic()
@@ -115,22 +139,7 @@ namespace Dataverse.Sql.Tests
         [TestMethod]
         public void UpdateOneRow()
         {
-            var id1 = Guid.NewGuid();
-            var id2 = Guid.NewGuid();
-
-            _context.Data["account"] = new Dictionary<Guid, Entity>
-            {
-                [id1] = new Entity("account", id1)
-                {
-                    ["accountid"] = id1,
-                    ["name"] = "Test1"
-                },
-                [id2] = new Entity("account", id2)
-                {
-                    ["accountid"] = id2,
-                    ["name"] = "Test2"
-                }
-            };
+            prepareAccounts();
 
             const string command = "UPDATE account SET name = @param1 WHERE name = @param2";
             var commandParams = new Dictionary<string, object>
@@ -151,22 +160,7 @@ namespace Dataverse.Sql.Tests
         [TestMethod]
         public void UpdateMultipleRows()
         {
-            var id1 = Guid.NewGuid();
-            var id2 = Guid.NewGuid();
-
-            _context.Data["account"] = new Dictionary<Guid, Entity>
-            {
-                [id1] = new Entity("account", id1)
-                {
-                    ["accountid"] = id1,
-                    ["name"] = "Test1"
-                },
-                [id2] = new Entity("account", id2)
-                {
-                    ["accountid"] = id2,
-                    ["name"] = "Test2"
-                }
-            };
+            prepareAccounts();
 
             const string command = "UPDATE account SET name = @param1 WHERE 1 = 1";
             var commandParams = new Dictionary<string, object>
@@ -184,24 +178,101 @@ namespace Dataverse.Sql.Tests
 
 
         [TestMethod]
+        public void RetrieveAsDataTable()
+        {
+            prepareAccounts();
+
+            const string command = "SELECT * FROM account";
+
+            using var dvSql = new DataverseSql(_localDataSource);
+            var result = dvSql.Retrieve(command);
+
+            Assert.AreEqual(9, result.Columns.Count);
+            Assert.AreEqual(2, result.Rows.Count);
+        }
+
+
+        [TestMethod]
+        public void RetrieveGeneric()
+        {
+            prepareAccounts();
+
+            const string command = "SELECT accountid, name FROM account";
+
+            using var dvSql = new DataverseSql(_localDataSource);
+            var result = dvSql.Retrieve<TestAccount>(command);
+
+            Assert.AreEqual(2, result.Count);
+        }
+
+
+        [TestMethod]
+        public void RetrieveGeneric2()
+        {
+            prepareAccounts();
+
+            const string command = "SELECT name, employees FROM account";
+
+            using var dvSql = new DataverseSql(_localDataSource);
+            var result = dvSql.Retrieve2<TestAccount>(command);
+
+            Assert.AreEqual(2, result.Count);
+        }
+
+
+        [TestMethod]
+        public void RetrieveJson()
+        {
+            prepareAccounts();
+
+            const string command = "SELECT name, employees FROM account";
+
+            using var dvSql = new DataverseSql(_localDataSource);
+            var result = dvSql.RetrieveJson(command);
+
+            Assert.AreEqual(@"[
+  {
+    ""name"": ""Test1"",
+    ""employees"": 12
+  },
+  {
+    ""name"": ""Test2"",
+    ""employees"": 100
+  }
+]", result);
+        }
+
+
+        [TestMethod]
+        public void RetrieveJson2()
+        {
+            prepareAccounts();
+
+            const string command = "SELECT name, employees FROM account";
+
+            using var dvSql = new DataverseSql(_localDataSource);
+            var resultT = dvSql.Retrieve2<TestAccount>(command);
+            var result = dvSql.RetrieveJson2<TestAccount>(command);
+
+            Assert.AreEqual(@"[
+  {
+    ""AccountId"": null,
+    ""Name"": ""Test1"",
+    ""Employees"": 12
+  },
+  {
+    ""AccountId"": null,
+    ""Name"": ""Test2"",
+    ""Employees"": 100
+  }
+]", result);
+        }
+
+
+        [TestMethod]
         public void RetrieveScalar()
         {
-            var id1 = Guid.NewGuid();
-            var id2 = Guid.NewGuid();
-
-            _context.Data["account"] = new Dictionary<Guid, Entity>
-            {
-                [id1] = new Entity("account", id1)
-                {
-                    ["accountid"] = id1,
-                    ["name"] = "Test1"
-                },
-                [id2] = new Entity("account", id2)
-                {
-                    ["accountid"] = id2,
-                    ["name"] = "Test2"
-                }
-            };
+            prepareAccounts();
 
             const string command = "SELECT COUNT(*) FROM account";
             
