@@ -6,10 +6,10 @@
     <AssemblyName>Dataverse.Sql</AssemblyName>
     <Product>Dataverse.Sql</Product>
     <PackageId>Dataverse.Sql</PackageId>
-    <AssemblyVersion>6.4.0</AssemblyVersion>
-    <FileVersion>6.4.0</FileVersion>
-    <Version>6.4.0</Version>
-    <PackageVersion>6.4.0</PackageVersion>
+    <AssemblyVersion>7.1.0</AssemblyVersion>
+    <FileVersion>7.1.0</FileVersion>
+    <Version>7.1.0</Version>
+    <PackageVersion>7.1.0</PackageVersion>
     <Description>A wrapper around Mark Carrington's SQL4Cds Engine.</Description>
     <Copyright>Copyright (c) 2020 - 2023 Michael Seeger</Copyright>
     <Authors>MiSeeger</Authors>
@@ -26,9 +26,9 @@
 
   <ItemGroup>
     <PackageReference Include="FastMember.Signed" Version="1.5.0" />
-    <PackageReference Include="MarkMpn.Sql4Cds.Engine" Version="6.4.0" />
+    <PackageReference Include="MarkMpn.Sql4Cds.Engine" Version="7.1.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="5.0.0" />
-    <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.0.9" />
+    <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.0.39" />
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="150.4897.1" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
   </ItemGroup>

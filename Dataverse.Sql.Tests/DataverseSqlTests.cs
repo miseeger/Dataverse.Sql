@@ -186,7 +186,7 @@ namespace Dataverse.Sql.Tests
             using var dvSql = new DataverseSql(_localDataSource);
             var result = dvSql.Retrieve(command);
 
-            Assert.AreEqual(9, result.Columns.Count);
+            Assert.AreEqual(11, result.Columns.Count);
             Assert.AreEqual(2, result.Rows.Count);
         }
 
