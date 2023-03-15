@@ -5,7 +5,7 @@ This project is a dotNET (Core) wrapper around [Mark Carrington's](https://markc
 
 Dataverse.Sql adds convenience methods to retrieve data from your Dataverse Environment via SQL, using the `Sql4CdsConnection` with its standard ADO.NET connection interface. It also provides the opportunity to set the engine options in a settings file (`dataversesql.json`) which is delivered with the package.
 
-This library will continuously be synchonized with the latest SQL 4 CDS engine. Version numbers will be accordingly updated. So the version 6.4.0 of Dataverse.Sql uses the according version of the SQL4Cds engine.
+This library will continuously be synchonized with the latest SQL 4 CDS engine. Version numbers will be accordingly updated and synchronized.
 
 The SQL engine is able to convert the provided SQL query into the corresponding [FetchXML](https://docs.microsoft.com/en-us/powerapps/developer/common-data-service/fetchxml-schema) syntax and allows the associated query to be executed, including the following types of query:
 
