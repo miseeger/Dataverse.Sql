@@ -11,7 +11,7 @@
     <Version>6.4.0</Version>
     <PackageVersion>6.4.0</PackageVersion>
     <Description>A wrapper around Mark Carrington's SQL4Cds Engine.</Description>
-    <Copyright>Copyright (c) 2020 - 2022 Michael Seeger</Copyright>
+    <Copyright>Copyright (c) 2020 - 2023 Michael Seeger</Copyright>
     <Authors>MiSeeger</Authors>
     <PackageTags>Dynamics365,SQL,ADO,SQL4Cds,Dataverse,NetCore</PackageTags>
     <PackageProjectUrl>https://github.com/miseeger/Dataverse.Sql</PackageProjectUrl>

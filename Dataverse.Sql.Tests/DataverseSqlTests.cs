@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Dataverse.Sql.Tests.TestModels;
-using FakeXrmEasy.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Xrm.Sdk;
 
