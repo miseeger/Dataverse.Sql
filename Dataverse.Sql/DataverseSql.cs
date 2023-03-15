@@ -7,11 +7,13 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Dataverse.Sql.Models;
 using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Query;
 using Microsoft.Extensions.Configuration;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Reflection;
+using Microsoft.Crm.Sdk.Messages;
 
 namespace Dataverse.Sql
 {
@@ -22,6 +24,9 @@ namespace Dataverse.Sql
     public class DataverseSql : IDisposable
     {
         private bool disposedValue;
+        
+        private int _localeId;
+        private Guid? _userId;
 
         public Sql4CdsConnection Connection { get; set; }
         public bool IsReady => Connection is { State: ConnectionState.Open };
@@ -33,6 +38,51 @@ namespace Dataverse.Sql
         public IDictionary<string, DataSource> DataSources { get; private set; }
         public DataSource MainDataSource => DataSources?.First().Value;
 
+        public int LocaleId
+        {
+            get
+            {
+                if (_localeId != 0)
+                    return _localeId;
+
+                try
+                {
+                    var qry = new QueryExpression("usersettings");
+                    qry.TopCount = 1;
+                    qry.ColumnSet = new ColumnSet("localeid");
+                    qry.Criteria.AddCondition("systemuserid", ConditionOperator.EqualUserId);
+                    var userLink = qry.AddLink("systemuser", "systemuserid", "systemuserid");
+                    var orgLink = userLink.AddLink("organization", "organizationid", "organizationid");
+                    orgLink.EntityAlias = "org";
+                    orgLink.Columns = new ColumnSet("localeid");
+                    var locale = MainService.RetrieveMultiple(qry).Entities.Single();
+
+                    return locale.Contains("localeid")
+                        ? locale.GetAttributeValue<int>("localeid")
+                        : (int)locale.GetAttributeValue<AliasedValue>("org.localeid").Value;
+                }
+                catch (Exception)
+                {
+                    return 0;
+                }
+            }
+        }
+
+        public Guid UserId
+        {
+            get
+            {
+                if (_userId != null)
+                    return _userId.Value;
+
+                if (MainService is ServiceClient svc && svc.CallerId != Guid.Empty)
+                    _userId = svc.CallerId;
+                else
+                    _userId = ((WhoAmIResponse)MainService.Execute(new WhoAmIRequest())).UserId;
+
+                return _userId.Value;
+            }
+        }
 
         /// <summary>
         /// Creates a new <see cref="DataverseSql"/> wrapper using the specified XRM connection string(s)
