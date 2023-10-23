@@ -24,7 +24,7 @@ namespace Dataverse.Sql
     public class DataverseSql : IDisposable
     {
         private bool disposedValue;
-        
+
         private int _localeId;
         private Guid? _userId;
 
@@ -44,7 +44,6 @@ namespace Dataverse.Sql
             {
                 if (_localeId != 0)
                     return _localeId;
-
                 try
                 {
                     var qry = new QueryExpression("usersettings");
@@ -57,9 +56,11 @@ namespace Dataverse.Sql
                     orgLink.Columns = new ColumnSet("localeid");
                     var locale = MainService.RetrieveMultiple(qry).Entities.Single();
 
-                    return locale.Contains("localeid")
+                    _localeId = locale.Contains("localeid")
                         ? locale.GetAttributeValue<int>("localeid")
                         : (int)locale.GetAttributeValue<AliasedValue>("org.localeid").Value;
+
+                    return _localeId;
                 }
                 catch (Exception)
                 {
@@ -203,9 +204,9 @@ namespace Dataverse.Sql
 
 
         // ** When using the OAuth AuthType\AuthenticationType **
-        // For development and prototyping purposes Microsoft provides the following AppId or 
-        // ClientId and Redirect URI for use in OAuth Flows. For production use, you should 
-        // create an AppId or ClientId that is specific to your tenant in the Azure Management 
+        // For development and prototyping purposes Microsoft provides the following AppId or
+        // ClientId and Redirect URI for use in OAuth Flows. For production use, you should
+        // create an AppId or ClientId that is specific to your tenant in the Azure Management
         // portal.
         //
         //    Sample AppId or ClientId = 51f81489-12ee-4a9e-aaae-a2591f45987d
@@ -221,7 +222,7 @@ namespace Dataverse.Sql
         /// <param name="url">URL to your Dataverse Environment.</param>
         /// <param name="username">Username</param>
         /// <param name="password">Password (empty if omitted)</param>
-        /// <param name="clientId">If omitted the Id 51f81489-12ee-4a9e-aaae-a2591f45987d is used 
+        /// <param name="clientId">If omitted the Id 51f81489-12ee-4a9e-aaae-a2591f45987d is used
         /// which is given by Microsoft in order to use it for developing and prototyping purposes.</param>
         /// <returns></returns>
         public static string GetOAuthConnectionString(string url, string username, string password = "", string clientId = "51f81489-12ee-4a9e-aaae-a2591f45987d")
